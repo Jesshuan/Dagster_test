@@ -1,4 +1,6 @@
 locations:
-  - location_name: tutorial
+  - location_name: factory
     code_source:
-      package_name: tutorial
+      package_name: factory
+auto_materialize:
+  enable: true

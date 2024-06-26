@@ -1,8 +1,8 @@
 from setuptools import find_packages, setup
 
 setup(
-    name="tutorial",
-    packages=find_packages(exclude=["tutorial_tests"]),
+    name="factory",
+    packages=find_packages(),
     install_requires=[
         "dagster",
         "dagster_duckdb_pandas",
@@ -11,7 +11,8 @@ setup(
         "Faker==18.4.0",
         "matplotlib",
         "pandas",
-        "requests",
+        "numpy",
+        "requests"
     ],
     extras_require={"dev": ["dagster-webserver", "pytest"]},
 )

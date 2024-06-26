@@ -6,3 +6,6 @@ history/
 schedules/
 tmpkhlu07jc/
 tutorial/__pycache__/
+storage
+tmp*
+logs
