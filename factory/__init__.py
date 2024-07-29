@@ -38,6 +38,7 @@ from dagster import (
     DefaultSensorStatus,
     RunRequest
 )
+"""
 
 #import redis
 
@@ -78,27 +79,28 @@ jobs_list = factory.build_jobs()
 schedules_list = factory.build_schedules()
 sensors_list = factory.build_sensors()
 
+print ("SENSOR OBJECTS LIST ")
+
+print(dir(jobs_list[0]))
+
 defs = Definitions(assets=assets_list + graph_assets_list, 
                    jobs=jobs_list,
                    schedules=schedules_list ,
                    sensors=sensors_list
                    )
                    # resources=resources, sensors=[my_custom_auto_materialize_sensor],
-              
-        
-
 """
+
 
 # FOR ASSETS PLAYGROUND TESTING
 
 from factory.assets_playground import * 
 
-defs = Definitions(assets=[asset_test_1, asset_test_2, asset_test_3, graph_asset_test_4],
-                   jobs=[job_1, job_2, job_3, job_4],
-                   schedules=[schedule_1, schedule_2, schedule_3, schedule_4],
-                   sensors=[sensor_2])
+defs = Definitions(assets=[asset_test_1, asset_test_2, asset_test_3, graph_asset_test_4, graph_asset_test_5, graph_asset_test_4_bis, graph_asset_test_6],
+                   jobs=[job_1, job_4, job_5],
+                   schedules=[schedule_1, schedule_4, schedule_5])
 
-"""
+
 """
 auto_materialize_policy=AutoMaterializePolicy.eager()\
             .with_rules(AutoMaterializeRule.materialize_on_cron("*/3 * * * *"))\

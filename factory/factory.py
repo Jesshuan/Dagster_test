@@ -21,9 +21,11 @@ from dagster import (
     InputContext,
     io_manager,
     asset,
+    schedule,
     In,
     op,
     graph_asset,
+    RunsFilter,
     multi_asset,
     Config,
     RunConfig,
@@ -35,6 +37,7 @@ from dagster import (
     multi_asset_sensor,
     SensorDefinition,
     MultiAssetSensorEvaluationContext,
+    ScheduleEvaluationContext,
     DefaultSensorStatus,
     RunRequest
 )
@@ -240,7 +243,8 @@ class Pipeline_Factory():
                                                             "time_preprocessing":time_preprocessing,
                                                            "sources":upstream_without_cache + internal_cache})
                         if cron_string:
-                            self.schedule_to_build.append({"job_name":f'job_{name}',
+                            self.schedule_to_build.append({"schedule_name":f"schedule_{name}",
+                                                           "job_name":f'job_{name}',
                                                                "cron":cron_string})
                         """if refresh_on_upstreams_up_list: # If we have to refresh the asset depending on the upstreams
                             if len(refresh_on_upstreams_up_list) > 0:
@@ -267,8 +271,9 @@ class Pipeline_Factory():
                                                             "time_preprocessing":None,
                                                            "sources":[]})
                     if cron_string:
-                        self.schedule_to_build.append({"job_name":f'job_{name}',
-                                                               "cron":cron_string})
+                        self.schedule_to_build.append({"schedule_name":f"schedule_{name}",
+                                                       "job_name":f'job_{name}',
+                                                        "cron":cron_string})
                     
     def build_assets(self) -> Union[AssetsDefinition]:
 
@@ -414,11 +419,52 @@ class Pipeline_Factory():
     
     
     def build_schedules(self) -> Union[ScheduleDefinition]:
+
+        schedules_list = []
+
+        for schedule_to_build in self.schedule_to_build:
+            
+            @schedule(name=schedule_to_build["schedule_name"],
+                      cron_schedule=schedule_to_build["cron"],
+                    job_name=schedule_to_build["job_name"],
+                    default_status=DefaultScheduleStatus.RUNNING)
+            def _schedule(context: ScheduleEvaluationContext):
+
+                job_name = "job_" + context._schedule_name.removeprefix("schedule_")
+
+                context.log.info(f"Job_name linked : {job_name}")
+                        
+                instance = context.instance
+                # Retrieve the last successful run of the job
+                last_run = instance.get_run_records(
+                                        filters=RunsFilter(job_name = job_name),
+                                        limit=1,
+                                        order_by="start_time",
+                                        ascending=False
+                                        )
+                context.log.info(f"Last run of the good job ? : {last_run}")
+
+
+                if len(last_run)>0:
+                    last_run_config = last_run[0].dagster_run.run_config
+                    context.log.info(f"Run with last run config (continuous) : {last_run_config}")
+                    return RunRequest(
+                                    run_config=last_run_config, #run_key=None,
+                                    tags={"source": "run_with_continuous_parameters"}
+                                    )
+                else:
+                # Provide a default run config if no previous run is found
+                    context.log.info(f"Run with default run config")
+                    return RunRequest(tags={"source": "run_with_default_parameters"})
+
+            schedules_list.append(_schedule)
+
+        return schedules_list
     
-        return [ScheduleDefinition(job_name=schedule_to_build["job_name"], \
+        """return [ScheduleDefinition(job_name=schedule_to_build["job_name"], \
                                    cron_schedule=schedule_to_build["cron"], \
                                     default_status=DefaultScheduleStatus.RUNNING) \
-                for schedule_to_build in self.schedule_to_build]
+                for schedule_to_build in self.schedule_to_build]"""
     
     def build_sensors(self) -> Union[SensorDefinition]:
 
@@ -434,11 +480,143 @@ class Pipeline_Factory():
                                 minimum_interval_seconds=MINIMAL_INTERVAL_SENSOR,
                                 default_status=DefaultSensorStatus.RUNNING)
             def _sensor(context: MultiAssetSensorEvaluationContext):
+                
                 for asset_key, materialization in context.latest_materialization_records_by_key().items():
                     if materialization:
+
+                        job_name = "job_" + context.sensor_name.removeprefix("sensor_")
+
+                        context.log.info(f"Job_name linked : {job_name}")
+                        
+                        instance = context.instance
+                        # Retrieve the last successful run of the job
+                        last_run = instance.get_run_records(
+                                        filters=RunsFilter(job_name = job_name),
+                                        limit=1,
+                                        order_by="start_time",
+                                        ascending=False
+                                        )
+                        context.log.info(f"Last run of the good job ? : {last_run}")
+
                         context.advance_cursor({asset_key: materialization})
-                        return RunRequest()
+
+                        if len(last_run)>0:
+                            last_run_config = last_run[0].dagster_run.run_config
+                            context.log.info(f"Run with last run config (continuous) : {last_run_config}")
+                            return RunRequest(
+                                        run_config=last_run_config, #run_key=None,
+                                        tags={"source": "run_with_continuous_parameters"}
+                                        )
+                        else:
+                        # Provide a default run config if no previous run is found
+                            context.log.info(f"Run with default run config ")
+                            return RunRequest(tags={"source": "run_with_default_parameters"})
+                        
+                            """return RunRequest(
+                                        run_config={'ops':
+                                          {'debit_sans_pluie__eq_333333_cache_inference_eq_111111':
+                                            {'config':
+                                                {'model_type': 'cache',
+                                                    'params': {},
+                                                    'sources': 'eq_111111'
+                                                }
+                                            }
+                                          }
+                                        },
+                                        tags={"source": "run_with_default_parameters"} #run_config={"ops": {"my_op": {"config": {"param": "default_value"}}}}, #run_key=None,
+                                        )"""
                     
             sensors_list.append(_sensor)
 
         return sensors_list
+    
+
+"""
+
+ @sensor(job=my_job)
+   def my_custom_sensor(context: SensorEvaluationContext):
+       instance = context.instance
+       # Retrieve the last successful run of the job
+       last_run = instance.get_runs(
+           filters={"job_name": "my_job", "status": "SUCCESS"},
+           limit=1,
+           order_by="start_time",
+           ascending=False
+       )
+
+       if last_run:
+           # Use the run config from the last successful run
+           last_run_config = last_run[0].run_config
+           return RunRequest(
+               run_key=None,
+               run_config=last_run_config,
+               tags={"source": "my_custom_sensor"}
+           )
+       else:
+           # Provide a default run config if no previous run is found
+           return RunRequest(
+               run_key=None,
+               run_config={"ops": {"my_op": {"config": {"param": "default_value"}}}},
+               tags={"source": "my_custom_sensor"}
+           )
+
+@schedule(cron_schedule="0 0 * * *", job=my_job)
+   def my_custom_schedule(context: ScheduleEvaluationContext):
+       instance = context.instance
+       # Retrieve the last successful run of the job
+       last_run = instance.get_runs(
+           filters={"job_name": "my_job", "status": "SUCCESS"},
+           limit=1,
+           order_by="start_time",
+           ascending=False
+       )
+
+       if last_run:
+           # Use the run config from the last successful run
+           last_run_config = last_run[0].run_config
+           return RunRequest(
+               run_key=None,
+               run_config=last_run_config,
+               tags={"source": "my_custom_schedule"}
+           )
+       else:
+           # Provide a default run config if no previous run is found
+           return RunRequest(
+               run_key=None,
+               run_config={"ops": {"my_op": {"config": {"param": "default_value"}}}},
+               tags={"source": "my_custom_schedule"}
+           )
+
+@schedule(job=my_job, cron_schedule="0 0 * * *")
+   def my_custom_schedule(context: ScheduleEvaluationContext):
+       # Retrieve the last successful run of the job
+       last_run = context.instance.get_runs(
+           filters={"job_name": "my_job", "status": "SUCCESS"},
+           limit=1,
+           order_by="start_time",
+           ascending=False
+       )
+
+       if last_run:
+           # Use the run config from the last successful run
+           last_run_config = last_run[0].run_config
+           return RunRequest(
+               run_key=None,
+               run_config=last_run_config,
+               tags={"source": "my_custom_schedule"}
+           )
+       else:
+           # Provide a default run config if no previous run is found
+           return RunRequest(
+               run_key=None,
+               run_config={"ops": {"my_op": {"config": {"param": "default_value"}}}},
+               tags={"source": "my_custom_schedule"}
+           )
+   
+
+
+
+
+
+
+   """

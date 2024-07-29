@@ -5,7 +5,7 @@ from dagster_graphql import DagsterGraphQLClient
 client = DagsterGraphQLClient("localhost", port_number=3000)
 
 
-reload_info: ReloadRepositoryLocationInfo = client.reload_repository_location("tutorial")
+reload_info: ReloadRepositoryLocationInfo = client.reload_repository_location("factory")
 if reload_info.status == ReloadRepositoryLocationStatus.SUCCESS:
     print("Deployment Reloaded")
 else:

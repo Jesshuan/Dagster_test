@@ -15,21 +15,21 @@ if __name__ == "__main__":
     sub_dict = {}
 
     sub_dict["interpolation_inputer"] = {'config':
-                                        {'interpolation_type': "other_linear"}
+                                        {'interpolation_type': "other_linear_2"}
                                         }
 
     for i in range(len(SOURCES) - 1):
         sub_dict[f"interpolation_inputer_{i + 2}"] = {'config':
-                                                    {'interpolation_type': "other_linear"}
+                                                    {'interpolation_type': "other_linear-2"}
                                                         }
 
     sub_dict["main_process"] = {'config':
                                         {'model_type': "influx_operation", 
-                                            'params': {"influx_type":"C without D"}
+                                            'params': {"influx_type":"C without D - new"}
                                         }
                                     }
     sub_dict["time_preprocessing"] = {'config':
-                                        {'time_preprocessing_type': 'other_shifter'}
+                                        {'time_preprocessing_type': 'other_shifter_2'}
                                             }
 
     
